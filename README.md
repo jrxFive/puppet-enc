@@ -40,7 +40,7 @@ supplied arguments. There are 5 direct modes:
 * -l or --ls
 * -r or --rm
 * -a or --add
-# -f or --find
+* -f or --find
 * <node_name>
 
 Some of these modes are used in combination with:
