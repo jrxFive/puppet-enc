@@ -85,3 +85,8 @@ enc.py --ls --env dbsuper
 #list all environments
 enc.py --ls
 ```
+
+##TODO
+* Add support for parameters and classes
+# Simplfy argument parsing
+* Possible defaults for db.yml
