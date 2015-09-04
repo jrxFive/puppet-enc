@@ -216,9 +216,11 @@ class Environments(DB):
 def print_find(enc, arg):
     result = enc.find_node(arg)
     if result:
-        print yaml.dump({"environment": result}, default_flow_style=False, line_break=None).replace('\n', '')
+        print(yaml.dump({"environment": result},
+                        default_flow_style=False, line_break=None).replace('\n', ''))
     else:
-        print yaml.dump({"environment": "undef"}, default_flow_style=False, line_break=None).replace('\n', '')
+        print(yaml.dump({"environment": "undef"},
+                        default_flow_style=False, line_break=None).replace('\n', ''))
 
 if __name__ == "__main__":
     parser = optparse.OptionParser()
@@ -286,10 +288,10 @@ if __name__ == "__main__":
     elif options.list:
         if options.environment:
             result = e.get_environment(options.environment)
-            print yaml.dump(result, default_flow_style=False)
+            print(yaml.dump(result, default_flow_style=False))
         else:
             result = e.get_environment()
-            print yaml.dump(result, default_flow_style=False)
+            print(yaml.dump(result, default_flow_style=False))
     elif options.add:
         if options.environment and options.custom:
             result = e.add_environment(

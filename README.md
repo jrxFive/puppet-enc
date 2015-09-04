@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/jrxFive/puppet-enc.svg?branch=master)](https://travis-ci.org/jrxFive/puppet-enc)
+
 # puppet-enc
 A simple puppet ENC with a YAML file backend. Ideally for
 a single puppet master. Able to edit file directly or through
