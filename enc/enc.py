@@ -28,7 +28,12 @@ class DB(object):
 
     def _write_yaml_db(self):
         with open(self.db_filepath, 'w+') as fh:
-            yaml.dump(self.db, fh, default_flow_style=False)
+            try:
+                yaml.dump(self.db, fh, default_flow_style=False)
+            except EnvironmentError:
+                sys.stderr.write(
+                    "EnvironmentError occured when attemping to write to file\n")
+                raise
 
 
 class Environments(DB):
@@ -42,8 +47,8 @@ class Environments(DB):
         self._check_create_empty()
 
     def _check_create_empty(self):
-        """Check if ROOT_KEY has been created in the db file. If False add ROOT_KEY to db
-        file with a value of an empty dict"""
+        """Check if ROOT_KEY has been created in the db file. If False
+        add ROOT_KEY to db file with a value of an empty dict"""
         if not self._check():
             self.db[Environments.ROOT_KEY] = {}
             self._write_yaml_db()
@@ -59,16 +64,20 @@ class Environments(DB):
             if env_name in self.db[Environments.ROOT_KEY]:
                 return True
             else:
+                sys.stderr.write(
+                    "Environment: {e} does not exist\n".format(e=env_name))
                 return False
         else:
             if Environments.ROOT_KEY in self.db:
                 return True
             else:
+                sys.stderr.write("Environment key does not exist\n")
                 return False
 
     def _get_nested(self, env_name=None, nested_key=None):
-        """Get nested information within each environment either (nodes,groups). Environments
-        name must exist or set to None. If env_name is None and nested_key given"""
+        """Get nested information within each environment either
+        (nodes,groups). Environments name must exist or set to None.
+        If env_name is None and nested_key given"""
         if not self._check(env_name):  # if environment does not exist in db file
             return False
         if env_name:
@@ -107,9 +116,9 @@ class Environments(DB):
 
     def _delete_nested(self, env_name=None, nested_key=None, delete_key=None):
         """Delete nested key if the env_name exists. If no delete_key is given
-        will remove entire nested_key and recreated nested_key with empty dict. If
-        delete_key is given will delete only that key within the nested_key. Returns
-        False if operations cannot be done or failed to lookup key"""
+        will remove entire nested_key and recreated nested_key with empty dict.
+        If delete_key is given will delete only that key within the nested_key.
+        Returns False if operations cannot be done or failed to lookup key"""
         try:
             if not self._check(env_name):
                 return False
@@ -129,19 +138,30 @@ class Environments(DB):
             return False
 
     def add_environment(self, env_name=None, env_name_values=None):
-        """Add environment, returns False if env_name already exists. If supplying preset
-        nested values it must contain NODES_KEY and GROUPS_KEY and they must be dicts,
-        otherwise will return False"""
+        """Add environment, returns False if env_name already exists.
+        If supplying preset nested values it must contain NODES_KEY and
+        GROUPS_KEY and they must be dicts, otherwise will return False"""
 
         if env_name and env_name_values and env_name not in self.db[Environments.ROOT_KEY]:
 
             if Environments.NODES_KEY not in env_name_values:
+                sys.stderr.write(
+                    "nodes object does not exist in given environment\n")
+
                 return False
             if not isinstance(env_name_values[Environments.NODES_KEY], dict):
+                sys.stderr.write(
+                    "nodes is not an object in given environment\n")
+
                 return False
             if Environments.GROUPS_KEY not in env_name_values:
+                sys.stderr.write(
+                    "groups object does not exist in given environment\n")
+
                 return False
             if not isinstance(env_name_values[Environments.GROUPS_KEY], dict):
+                sys.stderr.write(
+                    "groups is not an object in given environment\n")
                 return False
 
             self.db[Environments.ROOT_KEY][env_name] = env_name_values
@@ -154,6 +174,8 @@ class Environments(DB):
             self._write_yaml_db()
             return True
         else:
+            sys.stderr.write(
+                "Environment: {e} already exists\n".format(e=env_name))
             return False
 
     def get_environment(self, env_name=None):
@@ -218,9 +240,11 @@ def print_find(enc, arg):
     if result:
         print(yaml.dump({"environment": result},
                         default_flow_style=False, line_break=None).replace('\n', ''))
+        sys.exit(0)
     else:
-        print(yaml.dump({"environment": "undef"},
-                        default_flow_style=False, line_break=None).replace('\n', ''))
+        sys.stderr.write(
+            "Unable to find environment for node: {n}\n".format(n=arg))
+        sys.exit(1)
 
 if __name__ == "__main__":
     parser = optparse.OptionParser()
