@@ -1,8 +1,8 @@
 [![Build Status](https://travis-ci.org/jrxFive/puppet-enc.svg?branch=master)](https://travis-ci.org/jrxFive/puppet-enc)
 
-# puppet-enc
-A simple puppet ENC with a YAML file backend. Ideally for
-a single puppet master. Able to edit file directly or through
+# puppet-consul-enc
+An puppet ENC with a Consul KV backend. Uses acquire and release locks
+should be able to handle multiple masters. Able to edit file directly or through
 supplied arguments which are detailed below
 
 ## Installation
@@ -15,7 +15,7 @@ On the puppet master edit `puppet.conf`:
 
 ```
 
-enc.py will generate a `db.yml` in the relative location
+enc.py will generate a `puppet-enc/db` in the consul KV location
 of the script. By default no environments will be set,
 this may change later on
 
@@ -91,4 +91,4 @@ enc.py --ls
 ##TODO
 * Add support for parameters and classes
 # Simplfy argument parsing
-* Possible defaults for db.yml
+* Possible defaults for db

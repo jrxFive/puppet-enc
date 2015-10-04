@@ -1,39 +1,115 @@
 import os
 import yaml
+import json
 import re
 import optparse
 import sys
+import consulate
+import requests
+import time
 
 
 class DB(object):
 
-    def __init__(self, db_filepath):
-        self.db = self._load_yaml_db(db_filepath)
-        self.db_filepath = db_filepath
+    def __init__(self, db_filepath, consul_host="localhost", consul_port=8500):
+        self.consul_host = consul_host
+        self.consul_port = consul_port
 
-    def _load_yaml_db(self, filepath):
+        if sys.version_info >= (2, 6, 0):
+            self.consul = consulate.Consul(
+                host=self.consul_host, port=self.consul_port)
+
+            self.consul._adapter.timeout = 5
+        else:
+            self.consul = consulate.Consulate(
+                host=self.consul_host, port=self.consul_port)
+
+            self.consul._adapter.timeout = 5
+
+        self.db_filepath = db_filepath
+        self.db = self._load_yaml_db()
+        self._create_session_id()
+
+    def _load_yaml_db(self):
         try:
-            with open(filepath, 'r') as fh:
-                r = yaml.load(fh.read())
-                if r:
-                    return r
-                else:
-                    return {}
-        except IOError as err:
+            db_serialized = self.consul.kv[self.db_filepath]
+            r = yaml.load(db_serialized)
+            if r:
+                return r
+            else:
+                return {}
+
+        except requests.exceptions.ReadTimeout:
+            sys.stderr.write(
+                "Unable to reach Consul from host={h}:{p}, within timeout={t}s\n".format(h=self.consul_host,
+                                                                                         p=self.consul_port,
+                                                                                         t=self.consul._adapter.timeout))
+            sys.exit(1)
+        except LookupError:
             return {}
-        except ValueError as err:
-            raise
-        except TypeError as err:
-            return {}
+        except consulate.ConsulateException:
+            sys.stderr.write(
+                "Consulate error when attempting to find db\n")
 
     def _write_yaml_db(self):
-        with open(self.db_filepath, 'w+') as fh:
-            try:
-                yaml.dump(self.db, fh, default_flow_style=False)
-            except EnvironmentError:
-                sys.stderr.write(
-                    "EnvironmentError occured when attemping to write to file\n")
-                raise
+        try:
+            attempts = 13
+            n = 0
+
+            response = self._attempt_set_lock()
+
+            if response.body:
+                self._attempt_set_lock(acquire=False)
+
+            else:
+                while not response.body and attempts >= n:
+                    sys.stderr.write("Unable to get lock on {k}, attempt: {n} out of {a}\n".format(k=self.db_filepath,
+                                                                                                   n=n,
+                                                                                                   a=attempts))
+                    time.sleep(1)
+                    response = self._attempt_set_lock()
+                    if response.body:
+                        break
+                    n = n + 1
+                else:
+                    raise consulate.ConsulateException
+
+                self._attempt_set_lock(acquire=False)
+
+        except requests.exceptions.ReadTimeout:
+            sys.stderr.write(
+                "Unable to reach Consul from host={h}:{p}, within timeout={t}s\n".format(h=self.consul_host,
+                                                                                         p=self.consul_port,
+                                                                                         t=self.consul._adapter.timeout))
+            sys.exit(1)
+        except consulate.ConsulateException:
+            sys.stderr.write(
+                "Consulate error when attempting to write to db, may have another session in use\n")
+
+    def _create_session_id(self):
+        self.session_id = self.consul.session.create(ttl='10s', delay='0s')
+
+    def _attempt_set_lock(self, acquire=True):
+
+        value = self.db
+        item = self.db_filepath
+
+        value = self.consul.kv._prepare_value(value)
+        if value and item.endswith('/'):
+            item = item.rstrip('/')
+
+        index = self.consul.kv._get_modify_index(
+            item, value, True)
+
+        if index is None:
+            return True
+
+        if acquire:
+            query_params = {'acquire': self.session_id}
+        else:
+            query_params = {'release': self.session_id}
+
+        return self.consul._adapter.put(self.consul.kv._build_uri([item], query_params), value)
 
 
 class Environments(DB):
@@ -42,8 +118,9 @@ class Environments(DB):
     NODES_KEY = "nodes"
     GROUPS_KEY = "groups"
 
-    def __init__(self, db_filepath):
-        super(Environments, self).__init__(db_filepath)
+    def __init__(self, db_filepath, consul_host="localhost", consul_port=8500):
+        super(Environments, self).__init__(
+            db_filepath, consul_host, consul_port)
         self._check_create_empty()
 
     def _check_create_empty(self):
@@ -304,7 +381,7 @@ if __name__ == "__main__":
 
     options, args = parser.parse_args()
 
-    e = Environments('db.yml')
+    e = Environments('puppet-enc/db')
 
     if options.find:
         print_find(e, options.find)
