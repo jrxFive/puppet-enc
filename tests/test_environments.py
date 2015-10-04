@@ -16,7 +16,7 @@ custom_env = {"groups": {"^saiyan": "", "^dbz": ""},
 class EnvironmentsTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.enc = Environments('tests/db.yml')
+        self.enc = Environments('puppet-enc/db')
         self.enc.db = {}
         self.enc._check_create_empty()
 
